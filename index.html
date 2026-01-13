@@ -89,6 +89,9 @@
             const [showLevelUp, setShowLevelUp] = useState(false);
             const [currentInterval, setCurrentInterval] = useState(1000);
             const [gameOverAnimation, setGameOverAnimation] = useState(false);
+            const [level, setLevel] = useState(1);
+            const [scoreHistory, setScoreHistory] = useState([]);
+            const [highScore, setHighScore] = useState(0);
 
             const currentHour = new Date().getHours();
             const isDaytime = currentHour >= 6 && currentHour < 18;
@@ -179,13 +182,21 @@
                 if (checkCollision(newPiece, startPos, board)) {
                     setGameOver(true);
                     setGameOverAnimation(true);
+                    // 게임 오버 시 현재 점수를 히스토리에 추가
+                    setScoreHistory(prev => {
+                        const newHistory = [...prev, { score, level }];
+                        // 최근 5개만 유지
+                        return newHistory.slice(-5);
+                    });
+                    // 최고 점수 업데이트
+                    setHighScore(prev => Math.max(prev, score));
                     return;
                 }
 
                 setCurrentPiece(newPiece);
                 setNextPiece(getRandomPiece());
                 setPosition(startPos);
-            }, [board, checkCollision, nextPiece]);
+            }, [board, checkCollision, nextPiece, score, level]);
 
             const moveDown = useCallback(() => {
                 if (!currentPiece || gameOver || isPaused || showLevelUp) return;
@@ -290,6 +301,7 @@
                 setBoard(createEmptyBoard());
                 setScore(0);
                 setLinesCleared(0);
+                setLevel(1);
                 setGameOver(false);
                 setGameOverAnimation(false);
                 setIsPaused(false);
@@ -313,6 +325,7 @@
                 setPosition({ x: 0, y: 0 });
                 setScore(0);
                 setLinesCleared(0);
+                setLevel(1);
                 setGameOver(false);
                 setGameOverAnimation(false);
                 setIsPaused(false);
@@ -328,18 +341,13 @@
 
             const increaseSpeed = () => {
                 setCurrentInterval(prev => Math.max(100, Math.round(prev * 0.8)));
+                setLevel(prev => prev + 1);
                 setShowLevelUp(false);
                 setIsPaused(false);
             };
 
             const formatScore = (score) => {
                 return score.toLocaleString();
-            };
-
-            const getSpeedPercent = () => {
-                const baseSpeed = SPEED_OPTIONS[speed].interval;
-                const speedRatio = baseSpeed / currentInterval;
-                return Math.round(speedRatio * 100);
             };
 
             const renderBoard = () => {
@@ -470,26 +478,9 @@
                                                 onClick={increaseSpeed}
                                                 className="px-4 py-2 bg-green-600 active:bg-green-700 rounded-lg font-semibold text-sm"
                                             >
-                                                속도 20% ↑
+                                                레벨 {level + 1}로 ↑
                                             </button>
                                         </div>
-                                    </div>
-                                )}
-
-                                {gameOver && (
-                                    <div className="mb-2 flex gap-2 justify-center">
-                                        <button
-                                            onClick={startGame}
-                                            className="px-4 py-2 bg-blue-600 active:bg-blue-700 rounded-lg text-sm"
-                                        >
-                                            다시 시작
-                                        </button>
-                                        <button
-                                            onClick={resetGame}
-                                            className="px-4 py-2 bg-gray-600 active:bg-gray-700 rounded-lg text-sm"
-                                        >
-                                            메인으로
-                                        </button>
                                     </div>
                                 )}
 
@@ -533,11 +524,31 @@
                                         )}
                                         
                                         <div className="flex flex-col items-center bg-gray-800 bg-opacity-80 p-2 rounded-lg">
-                                            <div className="text-sm font-semibold text-yellow-400">SPEED</div>
+                                            <div className="text-sm font-semibold text-yellow-400">LEVEL</div>
                                             <div className="text-xl font-bold text-white">
-                                                {getSpeedPercent()}%
+                                                {level}
                                             </div>
                                         </div>
+
+                                        {scoreHistory.length > 0 && (
+                                            <div className="flex flex-col items-center bg-gray-800 bg-opacity-90 p-2 rounded-lg">
+                                                <div className="text-xs font-semibold text-gray-400 mb-1">기록</div>
+                                                {scoreHistory.map((record, index) => (
+                                                    <div key={index} className="text-xs text-white">
+                                                        Lv.{record.level} : {formatScore(record.score)}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {highScore > 0 && (
+                                            <div className="flex flex-col items-center bg-gradient-to-r from-yellow-600 to-orange-600 p-2 rounded-lg">
+                                                <div className="text-xs font-semibold text-white">최고기록</div>
+                                                <div className="text-base font-bold text-white">
+                                                    {formatScore(highScore)}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="relative">
@@ -565,9 +576,23 @@
                                             )}
                                         </div>
                                         {gameOver && (
-                                            <div className="absolute inset-0 flex items-center justify-center">
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
                                                 <div className="text-3xl font-bold text-red-600 bg-black bg-opacity-70 px-5 py-3 rounded-lg">
                                                     GAME OVER
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={startGame}
+                                                        className="px-4 py-2 bg-blue-600 active:bg-blue-700 rounded-lg text-sm font-semibold"
+                                                    >
+                                                        다시 시작
+                                                    </button>
+                                                    <button
+                                                        onClick={resetGame}
+                                                        className="px-4 py-2 bg-gray-600 active:bg-gray-700 rounded-lg text-sm font-semibold"
+                                                    >
+                                                        메인으로
+                                                    </button>
                                                 </div>
                                             </div>
                                         )}
