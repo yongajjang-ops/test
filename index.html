@@ -108,8 +108,8 @@
             const [scoreHistory, setScoreHistory] = useState([]);
             const [highScore, setHighScore] = useState({ score: 0, level: 0 });
             const [isFullscreen, setIsFullscreen] = useState(false);
-            const [longPressTimer, setLongPressTimer] = useState(null);
-            const [moveInterval, setMoveInterval] = useState(null);
+            const [isMoving, setIsMoving] = useState(false);
+            const [moveDirection, setMoveDirection] = useState(0);
 
             // 전체화면 토글
             const toggleFullscreen = () => {
@@ -410,32 +410,39 @@
                 return score.toLocaleString();
             };
 
-            // 길게 누르기 시작
-            const handleMoveStart = (direction) => {
-                // 첫 번째 이동
-                moveHorizontal(direction);
-                
+            // 연속 이동 처리
+            useEffect(() => {
+                if (!isMoving || !currentPiece || gameOver || isPaused || showLevelUp) return;
+
+                let longPressTimer;
+                let moveInterval;
+
+                // 첫 이동 즉시 실행
+                moveHorizontal(moveDirection);
+
                 // 300ms 후 연속 이동 시작
-                const timer = setTimeout(() => {
-                    const interval = setInterval(() => {
-                        moveHorizontal(direction);
-                    }, 50); // 50ms마다 이동
-                    setMoveInterval(interval);
-                }, 300);
-                
-                setLongPressTimer(timer);
+                longPressTimer = setTimeout(() => {
+                    moveInterval = setInterval(() => {
+                        moveHorizontal(moveDirection);
+                    }, 80);
+                }, 250);
+
+                return () => {
+                    if (longPressTimer) clearTimeout(longPressTimer);
+                    if (moveInterval) clearInterval(moveInterval);
+                };
+            }, [isMoving, moveDirection, currentPiece, gameOver, isPaused, showLevelUp, moveHorizontal]);
+
+            // 이동 시작
+            const handleMoveStart = (direction) => {
+                setMoveDirection(direction);
+                setIsMoving(true);
             };
 
-            // 길게 누르기 종료
+            // 이동 종료
             const handleMoveEnd = () => {
-                if (longPressTimer) {
-                    clearTimeout(longPressTimer);
-                    setLongPressTimer(null);
-                }
-                if (moveInterval) {
-                    clearInterval(moveInterval);
-                    setMoveInterval(null);
-                }
+                setIsMoving(false);
+                setMoveDirection(0);
             };
 
             const renderBoard = () => {
