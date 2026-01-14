@@ -108,6 +108,8 @@
             const [scoreHistory, setScoreHistory] = useState([]);
             const [highScore, setHighScore] = useState({ score: 0, level: 0 });
             const [isFullscreen, setIsFullscreen] = useState(false);
+            const [longPressTimer, setLongPressTimer] = useState(null);
+            const [moveInterval, setMoveInterval] = useState(null);
 
             // 전체화면 토글
             const toggleFullscreen = () => {
@@ -408,6 +410,34 @@
                 return score.toLocaleString();
             };
 
+            // 길게 누르기 시작
+            const handleMoveStart = (direction) => {
+                // 첫 번째 이동
+                moveHorizontal(direction);
+                
+                // 300ms 후 연속 이동 시작
+                const timer = setTimeout(() => {
+                    const interval = setInterval(() => {
+                        moveHorizontal(direction);
+                    }, 50); // 50ms마다 이동
+                    setMoveInterval(interval);
+                }, 300);
+                
+                setLongPressTimer(timer);
+            };
+
+            // 길게 누르기 종료
+            const handleMoveEnd = () => {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    setLongPressTimer(null);
+                }
+                if (moveInterval) {
+                    clearInterval(moveInterval);
+                    setMoveInterval(null);
+                }
+            };
+
             const renderBoard = () => {
                 const displayBoard = board.map(row => [...row]);
 
@@ -675,7 +705,12 @@
                                 {!gameOver && !showLevelUp && (
                                     <div className="mt-4 grid grid-cols-3 gap-3 w-72 relative z-50">
                                         <button
-                                            onTouchStart={(e) => { e.preventDefault(); moveHorizontal(-1); }}
+                                            onTouchStart={(e) => { e.preventDefault(); handleMoveStart(-1); }}
+                                            onTouchEnd={(e) => { e.preventDefault(); handleMoveEnd(); }}
+                                            onTouchCancel={(e) => { e.preventDefault(); handleMoveEnd(); }}
+                                            onMouseDown={(e) => { e.preventDefault(); handleMoveStart(-1); }}
+                                            onMouseUp={(e) => { e.preventDefault(); handleMoveEnd(); }}
+                                            onMouseLeave={(e) => { e.preventDefault(); handleMoveEnd(); }}
                                             className="control-btn bg-gray-700 active:bg-gray-600 text-white font-bold py-4 rounded-lg text-2xl"
                                         >
                                             ←
@@ -687,7 +722,12 @@
                                             ↻
                                         </button>
                                         <button
-                                            onTouchStart={(e) => { e.preventDefault(); moveHorizontal(1); }}
+                                            onTouchStart={(e) => { e.preventDefault(); handleMoveStart(1); }}
+                                            onTouchEnd={(e) => { e.preventDefault(); handleMoveEnd(); }}
+                                            onTouchCancel={(e) => { e.preventDefault(); handleMoveEnd(); }}
+                                            onMouseDown={(e) => { e.preventDefault(); handleMoveStart(1); }}
+                                            onMouseUp={(e) => { e.preventDefault(); handleMoveEnd(); }}
+                                            onMouseLeave={(e) => { e.preventDefault(); handleMoveEnd(); }}
                                             className="control-btn bg-gray-700 active:bg-gray-600 text-white font-bold py-4 rounded-lg text-2xl"
                                         >
                                             →
