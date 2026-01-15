@@ -417,12 +417,12 @@
                 let longPressTimer;
                 let moveInterval;
 
-                // 300ms 후 연속 이동 시작 (첫 이동은 handleMoveStart에서 처리)
+                // 200ms 후 연속 이동 시작 (첫 이동은 handleMoveStart에서 처리)
                 longPressTimer = setTimeout(() => {
                     moveInterval = setInterval(() => {
                         moveHorizontal(moveDirection);
-                    }, 80);
-                }, 300);
+                    }, 40); // 40ms마다 이동 (더 빠르게)
+                }, 200); // 200ms 후 시작
 
                 return () => {
                     if (longPressTimer) clearTimeout(longPressTimer);
