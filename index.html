@@ -90,6 +90,57 @@
         const createEmptyBoard = () => 
             Array.from({ length: BOARD_HEIGHT }, () => Array(BOARD_WIDTH).fill(null));
 
+        // 랜덤 시작 보드 생성 (30-50% 채워짐)
+        const createRandomBoard = () => {
+            const newBoard = createEmptyBoard();
+            const fillHeight = Math.floor(Math.random() * 4) + 6; // 6~9줄 채우기 (30~45%)
+            const colors = ['bg-cyan-500', 'bg-yellow-500', 'bg-purple-500', 'bg-green-500', 'bg-red-500', 'bg-blue-500', 'bg-orange-500'];
+            
+            // 동물 모양 패턴들
+            const patterns = [
+                // 토끼
+                [[0,1,0,1,0], [1,1,1,1,1], [1,0,1,0,1], [0,1,1,1,0]],
+                // 새
+                [[0,1,0], [1,1,1], [0,1,0], [1,0,1]],
+                // 물고기
+                [[0,1,0], [1,1,1], [1,1,1], [0,1,0]],
+                // 나비
+                [[1,0,1], [1,1,1], [0,1,0], [1,0,1]],
+                // 하트
+                [[0,1,0,1,0], [1,1,1,1,1], [1,1,1,1,1], [0,1,1,1,0], [0,0,1,0,0]],
+            ];
+            
+            // 아래부터 채우기
+            for (let y = BOARD_HEIGHT - 1; y >= BOARD_HEIGHT - fillHeight; y--) {
+                for (let x = 0; x < BOARD_WIDTH; x++) {
+                    // 60% 확률로 블록 배치
+                    if (Math.random() < 0.6) {
+                        newBoard[y][x] = colors[Math.floor(Math.random() * colors.length)] + ' shadow-lg';
+                    }
+                }
+            }
+            
+            // 랜덤하게 2~3개의 동물 모양 추가
+            const numPatterns = Math.floor(Math.random() * 2) + 2;
+            for (let p = 0; p < numPatterns; p++) {
+                const pattern = patterns[Math.floor(Math.random() * patterns.length)];
+                const color = colors[Math.floor(Math.random() * colors.length)] + ' shadow-lg';
+                const startX = Math.floor(Math.random() * (BOARD_WIDTH - pattern[0].length));
+                const startY = BOARD_HEIGHT - fillHeight + Math.floor(Math.random() * Math.min(5, fillHeight - pattern.length));
+                
+                // 패턴 배치
+                for (let py = 0; py < pattern.length && startY + py < BOARD_HEIGHT; py++) {
+                    for (let px = 0; px < pattern[py].length && startX + px < BOARD_WIDTH; px++) {
+                        if (pattern[py][px] === 1) {
+                            newBoard[startY + py][startX + px] = color;
+                        }
+                    }
+                }
+            }
+            
+            return newBoard;
+        };
+
         const Tetris = () => {
             const [board, setBoard] = useState(createEmptyBoard());
             const [currentPiece, setCurrentPiece] = useState(null);
@@ -112,29 +163,31 @@
             const [moveDirection, setMoveDirection] = useState(0);
 
             // 전체화면 토글
-            const toggleFullscreen = () => {
-                if (!document.fullscreenElement) {
-                    document.documentElement.requestFullscreen({ orientationLock: 'portrait' }).then(() => {
+            const toggleFullscreen = async () => {
+                try {
+                    if (!document.fullscreenElement) {
+                        await document.documentElement.requestFullscreen();
                         setIsFullscreen(true);
                         // 화면을 세로 모드로 고정 시도
                         if (screen.orientation && screen.orientation.lock) {
-                            screen.orientation.lock('portrait').catch(() => {
-                                console.log('화면 방향 고정 실패');
-                            });
-                        }
-                    }).catch(err => {
-                        console.log('전체화면 전환 실패:', err);
-                    });
-                } else {
-                    if (document.exitFullscreen) {
-                        document.exitFullscreen().then(() => {
-                            setIsFullscreen(false);
-                            // 화면 방향 고정 해제
-                            if (screen.orientation && screen.orientation.unlock) {
-                                screen.orientation.unlock();
+                            try {
+                                await screen.orientation.lock('portrait');
+                            } catch (err) {
+                                console.log('화면 방향 고정 불가:', err);
                             }
-                        });
+                        }
+                    } else {
+                        await document.exitFullscreen();
+                        setIsFullscreen(false);
+                        // 화면 방향 고정 해제
+                        if (screen.orientation && screen.orientation.unlock) {
+                            screen.orientation.unlock();
+                        }
                     }
+                } catch (err) {
+                    console.log('전체화면 전환 실패:', err);
+                    // 실패해도 상태는 동기화
+                    setIsFullscreen(!!document.fullscreenElement);
                 }
             };
 
@@ -290,7 +343,9 @@
 
                 if (!checkCollision(currentPiece, newPos, board)) {
                     setPosition(newPos);
+                    return true; // 이동 성공
                 }
+                return false; // 이동 실패 (벽에 닿음)
             }, [currentPiece, position, board, gameOver, isPaused, showLevelUp, checkCollision]);
 
             const rotatePiece = useCallback(() => {
@@ -378,6 +433,27 @@
                 });
             };
 
+            const startRandomGame = () => {
+                setBoard(createRandomBoard());
+                setScore(0);
+                setLinesCleared(0);
+                setLevel(1);
+                setGameOver(false);
+                setGameOverAnimation(false);
+                setIsPaused(false);
+                setShowLevelUp(false);
+                setGameStarted(true);
+                setCurrentInterval(SPEED_OPTIONS[speed].interval);
+                const newPiece = getRandomPiece();
+                const nextNewPiece = getRandomPiece();
+                setCurrentPiece(newPiece);
+                setNextPiece(nextNewPiece);
+                setPosition({ 
+                    x: Math.floor(BOARD_WIDTH / 2) - Math.floor(newPiece.shape[0].length / 2), 
+                    y: 0 
+                });
+            };
+
             const resetGame = () => {
                 setBoard(createEmptyBoard());
                 setCurrentPiece(null);
@@ -412,23 +488,31 @@
 
             // 연속 이동 처리
             useEffect(() => {
-                if (!isMoving || !currentPiece || gameOver || isPaused || showLevelUp) return;
+                if (!isMoving) return;
 
-                let longPressTimer;
                 let moveInterval;
+                let longPressTimeout;
 
-                // 200ms 후 연속 이동 시작 (첫 이동은 handleMoveStart에서 처리)
-                longPressTimer = setTimeout(() => {
+                // 100ms 후 연속 이동 시작
+                longPressTimeout = setTimeout(() => {
+                    // 15ms마다 이동 시도 (매우 빠르게)
                     moveInterval = setInterval(() => {
-                        moveHorizontal(moveDirection);
-                    }, 40); // 40ms마다 이동 (더 빠르게)
-                }, 200); // 200ms 후 시작
+                        if (currentPiece && !gameOver && !isPaused && !showLevelUp) {
+                            const canMove = moveHorizontal(moveDirection);
+                            // 벽에 닿으면 멈춤
+                            if (!canMove) {
+                                clearInterval(moveInterval);
+                                setIsMoving(false);
+                            }
+                        }
+                    }, 15);
+                }, 100);
 
                 return () => {
-                    if (longPressTimer) clearTimeout(longPressTimer);
+                    if (longPressTimeout) clearTimeout(longPressTimeout);
                     if (moveInterval) clearInterval(moveInterval);
                 };
-            }, [isMoving, moveDirection, currentPiece, gameOver, isPaused, showLevelUp, moveHorizontal]);
+            }, [isMoving, moveDirection, moveHorizontal, currentPiece, gameOver, isPaused, showLevelUp]);
 
             // 이동 시작
             const handleMoveStart = (direction) => {
@@ -559,6 +643,12 @@
                                         className="px-4 py-2 bg-blue-600 active:bg-blue-700 rounded-lg text-base font-semibold"
                                     >
                                         게임 시작
+                                    </button>
+                                    <button
+                                        onClick={startRandomGame}
+                                        className="px-4 py-2 bg-purple-600 active:bg-purple-700 rounded-lg text-base font-semibold"
+                                    >
+                                        🎲 랜덤
                                     </button>
                                     <button
                                         onClick={toggleFullscreen}
@@ -709,47 +799,52 @@
                                 </div>
 
                                 {!gameOver && !showLevelUp && (
-                                    <div className="mt-4 grid grid-cols-3 gap-3 w-72 relative z-50">
-                                        <button
-                                            onTouchStart={(e) => { e.preventDefault(); handleMoveStart(-1); }}
-                                            onTouchEnd={(e) => { e.preventDefault(); handleMoveEnd(); }}
-                                            onTouchCancel={(e) => { e.preventDefault(); handleMoveEnd(); }}
-                                            onMouseDown={(e) => { e.preventDefault(); handleMoveStart(-1); }}
-                                            onMouseUp={(e) => { e.preventDefault(); handleMoveEnd(); }}
-                                            onMouseLeave={(e) => { e.preventDefault(); handleMoveEnd(); }}
-                                            className="control-btn bg-gray-700 active:bg-gray-600 text-white font-bold py-4 rounded-lg text-2xl"
-                                        >
-                                            ←
-                                        </button>
-                                        <button
-                                            onTouchStart={(e) => { e.preventDefault(); rotatePiece(); }}
-                                            className="control-btn bg-blue-600 active:bg-blue-500 text-white font-bold py-4 rounded-lg text-2xl"
-                                        >
-                                            ↻
-                                        </button>
-                                        <button
-                                            onTouchStart={(e) => { e.preventDefault(); handleMoveStart(1); }}
-                                            onTouchEnd={(e) => { e.preventDefault(); handleMoveEnd(); }}
-                                            onTouchCancel={(e) => { e.preventDefault(); handleMoveEnd(); }}
-                                            onMouseDown={(e) => { e.preventDefault(); handleMoveStart(1); }}
-                                            onMouseUp={(e) => { e.preventDefault(); handleMoveEnd(); }}
-                                            onMouseLeave={(e) => { e.preventDefault(); handleMoveEnd(); }}
-                                            className="control-btn bg-gray-700 active:bg-gray-600 text-white font-bold py-4 rounded-lg text-2xl"
-                                        >
-                                            →
-                                        </button>
-                                        <button
-                                            onTouchStart={(e) => { e.preventDefault(); setIsPaused(prev => !prev); }}
-                                            className="control-btn bg-yellow-600 active:bg-yellow-500 text-white font-bold py-4 rounded-lg text-2xl"
-                                        >
-                                            ⏸
-                                        </button>
-                                        <button
-                                            onTouchStart={(e) => { e.preventDefault(); hardDrop(); }}
-                                            className="control-btn bg-red-600 active:bg-red-500 text-white font-bold py-4 rounded-lg col-span-2 text-lg"
-                                        >
-                                            DROP
-                                        </button>
+                                    <div className="mt-4 flex flex-col gap-4 items-center relative z-50">
+                                        <div className="grid grid-cols-3 gap-3 w-72">
+                                            <button
+                                                onTouchStart={(e) => { e.preventDefault(); handleMoveStart(-1); }}
+                                                onTouchEnd={(e) => { e.preventDefault(); handleMoveEnd(); }}
+                                                onTouchCancel={(e) => { e.preventDefault(); handleMoveEnd(); }}
+                                                onMouseDown={(e) => { e.preventDefault(); handleMoveStart(-1); }}
+                                                onMouseUp={(e) => { e.preventDefault(); handleMoveEnd(); }}
+                                                onMouseLeave={(e) => { e.preventDefault(); handleMoveEnd(); }}
+                                                className="control-btn bg-gray-700 active:bg-gray-600 text-white font-bold py-4 rounded-lg text-2xl"
+                                            >
+                                                ←
+                                            </button>
+                                            <button
+                                                onTouchStart={(e) => { e.preventDefault(); rotatePiece(); }}
+                                                className="control-btn bg-blue-600 active:bg-blue-500 text-white font-bold py-4 rounded-lg text-2xl"
+                                            >
+                                                ↻
+                                            </button>
+                                            <button
+                                                onTouchStart={(e) => { e.preventDefault(); handleMoveStart(1); }}
+                                                onTouchEnd={(e) => { e.preventDefault(); handleMoveEnd(); }}
+                                                onTouchCancel={(e) => { e.preventDefault(); handleMoveEnd(); }}
+                                                onMouseDown={(e) => { e.preventDefault(); handleMoveStart(1); }}
+                                                onMouseUp={(e) => { e.preventDefault(); handleMoveEnd(); }}
+                                                onMouseLeave={(e) => { e.preventDefault(); handleMoveEnd(); }}
+                                                className="control-btn bg-gray-700 active:bg-gray-600 text-white font-bold py-4 rounded-lg text-2xl"
+                                            >
+                                                →
+                                            </button>
+                                        </div>
+                                        
+                                        <div className="grid grid-cols-3 gap-3 w-72">
+                                            <button
+                                                onTouchStart={(e) => { e.preventDefault(); setIsPaused(prev => !prev); }}
+                                                className="control-btn bg-yellow-600 active:bg-yellow-500 text-white font-bold py-4 rounded-lg text-2xl"
+                                            >
+                                                ⏸
+                                            </button>
+                                            <button
+                                                onTouchStart={(e) => { e.preventDefault(); hardDrop(); }}
+                                                className="control-btn bg-red-600 active:bg-red-500 text-white font-bold py-4 rounded-lg col-span-2 text-lg"
+                                            >
+                                                DROP
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
                             </>
