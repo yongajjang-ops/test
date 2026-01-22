@@ -16,23 +16,18 @@
             -webkit-tap-highlight-color: transparent;
             touch-action: manipulation;
         }
-        body {
-            overscroll-behavior: none;
-            position: fixed;
+        html, body {
+            margin: 0;
+            padding: 0;
             width: 100%;
             height: 100%;
-        }
-        html, body {
             overflow: hidden;
+            overscroll-behavior: none;
+            position: fixed;
         }
-        /* 전체화면일 때 세로 고정 */
-        html:fullscreen, html:-webkit-full-screen, html:-moz-full-screen {
-            transform: none !important;
-            width: 100vw !important;
-            height: 100vh !important;
-        }
-        body:fullscreen, body:-webkit-full-screen, body:-moz-full-screen {
-            transform: none !important;
+        #root {
+            width: 100%;
+            height: 100%;
         }
         @keyframes camelWalk {
             from { transform: translateX(100vw); }
