@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="screen-orientation" content="portrait">
-    <meta name="x5-orientation" content="portrait">
     <title>동옥의 AI TETRIS</title>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -23,19 +21,18 @@
             position: fixed;
             width: 100%;
             height: 100%;
-            orientation: portrait;
         }
-        @media screen and (orientation: landscape) {
-            body {
-                transform: rotate(-90deg);
-                transform-origin: left top;
-                width: 100vh;
-                height: 100vw;
-                overflow-x: hidden;
-                position: absolute;
-                top: 100%;
-                left: 0;
-            }
+        html, body {
+            overflow: hidden;
+        }
+        /* 전체화면일 때 세로 고정 */
+        html:fullscreen, html:-webkit-full-screen, html:-moz-full-screen {
+            transform: none !important;
+            width: 100vw !important;
+            height: 100vh !important;
+        }
+        body:fullscreen, body:-webkit-full-screen, body:-moz-full-screen {
+            transform: none !important;
         }
         @keyframes camelWalk {
             from { transform: translateX(100vw); }
@@ -166,27 +163,52 @@
             const toggleFullscreen = async () => {
                 try {
                     if (!document.fullscreenElement) {
-                        await document.documentElement.requestFullscreen();
-                        setIsFullscreen(true);
-                        // 화면을 세로 모드로 고정 시도
-                        if (screen.orientation && screen.orientation.lock) {
-                            try {
-                                await screen.orientation.lock('portrait');
-                            } catch (err) {
-                                console.log('화면 방향 고정 불가:', err);
-                            }
+                        // 전체화면 진입
+                        const elem = document.documentElement;
+                        if (elem.requestFullscreen) {
+                            await elem.requestFullscreen();
+                        } else if (elem.webkitRequestFullscreen) {
+                            await elem.webkitRequestFullscreen();
+                        } else if (elem.mozRequestFullScreen) {
+                            await elem.mozRequestFullScreen();
+                        } else if (elem.msRequestFullscreen) {
+                            await elem.msRequestFullscreen();
                         }
+                        
+                        setIsFullscreen(true);
+                        
+                        // 세로 모드로 고정 시도
+                        setTimeout(async () => {
+                            if (screen.orientation && screen.orientation.lock) {
+                                try {
+                                    await screen.orientation.lock('portrait');
+                                } catch (err) {
+                                    // iOS나 일부 브라우저에서는 지원 안 함
+                                    console.log('화면 고정 미지원');
+                                }
+                            }
+                        }, 100);
                     } else {
-                        await document.exitFullscreen();
+                        // 전체화면 해제
+                        if (document.exitFullscreen) {
+                            await document.exitFullscreen();
+                        } else if (document.webkitExitFullscreen) {
+                            await document.webkitExitFullscreen();
+                        } else if (document.mozCancelFullScreen) {
+                            await document.mozCancelFullScreen();
+                        } else if (document.msExitFullscreen) {
+                            await document.msExitFullscreen();
+                        }
+                        
                         setIsFullscreen(false);
-                        // 화면 방향 고정 해제
+                        
+                        // 화면 고정 해제
                         if (screen.orientation && screen.orientation.unlock) {
                             screen.orientation.unlock();
                         }
                     }
                 } catch (err) {
-                    console.log('전체화면 전환 실패:', err);
-                    // 실패해도 상태는 동기화
+                    console.log('전체화면 전환 중 오류:', err);
                     setIsFullscreen(!!document.fullscreenElement);
                 }
             };
@@ -198,7 +220,16 @@
                 };
                 
                 document.addEventListener('fullscreenchange', handleFullscreenChange);
-                return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+                document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+                document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+                document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+                
+                return () => {
+                    document.removeEventListener('fullscreenchange', handleFullscreenChange);
+                    document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+                    document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+                    document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+                };
             }, []);
 
             const currentHour = new Date().getHours();
