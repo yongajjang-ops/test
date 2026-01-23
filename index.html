@@ -158,7 +158,6 @@
             const toggleFullscreen = async () => {
                 try {
                     if (!document.fullscreenElement) {
-                        // 전체화면 진입
                         const elem = document.documentElement;
                         if (elem.requestFullscreen) {
                             await elem.requestFullscreen();
@@ -169,22 +168,8 @@
                         } else if (elem.msRequestFullscreen) {
                             await elem.msRequestFullscreen();
                         }
-                        
                         setIsFullscreen(true);
-                        
-                        // 세로 모드로 고정 시도
-                        setTimeout(async () => {
-                            if (screen.orientation && screen.orientation.lock) {
-                                try {
-                                    await screen.orientation.lock('portrait');
-                                } catch (err) {
-                                    // iOS나 일부 브라우저에서는 지원 안 함
-                                    console.log('화면 고정 미지원');
-                                }
-                            }
-                        }, 100);
                     } else {
-                        // 전체화면 해제
                         if (document.exitFullscreen) {
                             await document.exitFullscreen();
                         } else if (document.webkitExitFullscreen) {
@@ -194,13 +179,7 @@
                         } else if (document.msExitFullscreen) {
                             await document.msExitFullscreen();
                         }
-                        
                         setIsFullscreen(false);
-                        
-                        // 화면 고정 해제
-                        if (screen.orientation && screen.orientation.unlock) {
-                            screen.orientation.unlock();
-                        }
                     }
                 } catch (err) {
                     console.log('전체화면 전환 중 오류:', err);
@@ -215,16 +194,7 @@
                 };
                 
                 document.addEventListener('fullscreenchange', handleFullscreenChange);
-                document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-                document.addEventListener('mozfullscreenchange', handleFullscreenChange);
-                document.addEventListener('MSFullscreenChange', handleFullscreenChange);
-                
-                return () => {
-                    document.removeEventListener('fullscreenchange', handleFullscreenChange);
-                    document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-                    document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
-                    document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
-                };
+                return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
             }, []);
 
             const currentHour = new Date().getHours();
